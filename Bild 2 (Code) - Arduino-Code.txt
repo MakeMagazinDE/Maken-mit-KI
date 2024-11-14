@@ -1,0 +1,83 @@
+#include <Servo.h>
+
+Servo myServo;  // Erstellen eines Servo-Objekts
+
+// Pin-Zuweisungen
+const int button1Pin = 2;   // Taster 1 an Pin D2
+const int button2Pin = 3;   // Taster 2 an Pin D3
+const int ledPin1 = 10;     // LED für Position 0
+const int ledPin2 = 11;     // LED für Position 1
+const int ledPin3 = 12;     // LED für Position 2
+const int servoPin = 9;     // Servo an Pin D9
+
+// Variablen zur Speicherung der Tasterzustände
+int position = 0;  // Aktuelle Position des Servos (0, 1 oder 2)
+
+void setup() {
+  // Serielle Schnittstelle zur Ausgabe öffnen
+  Serial.begin(9600);
+
+  // Pin-Modi setzen
+  pinMode(button1Pin, INPUT_PULLUP);  // Interner Pull-Up für Taster 1
+  pinMode(button2Pin, INPUT_PULLUP);  // Interner Pull-Up für Taster 2
+  pinMode(ledPin1, OUTPUT);           // LED 1 als Ausgang
+  pinMode(ledPin2, OUTPUT);           // LED 2 als Ausgang
+  pinMode(ledPin3, OUTPUT);           // LED 3 als Ausgang
+  
+  // Servo initialisieren
+  myServo.attach(servoPin);
+  
+  // Anfangsposition setzen
+  updateServoPosition();
+}
+
+void loop() {
+  // Taster 1 überprüft: bewegt das Servo vorwärts durch die Positionen
+  if (digitalRead(button1Pin) == LOW) {  // Wenn Taster 1 gedrückt
+    Serial.println("Taster 1 gedrückt");
+    position++;
+    if (position > 2) {
+      position = 2;  // Maximalwert: 2 (Positionen 0, 1, 2)
+    }
+    updateServoPosition();
+    delay(200);  // Entprellung
+  }
+
+  // Taster 2 überprüft: bewegt das Servo rückwärts durch die Positionen
+  if (digitalRead(button2Pin) == LOW) {  // Wenn Taster 2 gedrückt
+    Serial.println("Taster 2 gedrückt");
+    position--;
+    if (position < 0) {
+      position = 0;  // Minimalwert: 0
+    }
+    updateServoPosition();
+    delay(200);  // Entprellung
+  }
+}
+
+// Funktion zur Aktualisierung der Servo-Position und LEDs
+void updateServoPosition() {
+  Serial.print("Aktuelle Position: ");
+  Serial.println(position);
+  
+  switch (position) {
+    case 0:
+      myServo.write(0);   // Servo in Position 0 Grad
+      digitalWrite(ledPin1, HIGH);  // LED 1 an
+      digitalWrite(ledPin2, LOW);   // LED 2 aus
+      digitalWrite(ledPin3, LOW);   // LED 3 aus
+      break;
+    case 1:
+      myServo.write(90);  // Servo in Position 90 Grad
+      digitalWrite(ledPin1, LOW);   // LED 1 aus
+      digitalWrite(ledPin2, HIGH);  // LED 2 an
+      digitalWrite(ledPin3, LOW);   // LED 3 aus
+      break;
+    case 2:
+      myServo.write(180); // Servo in Position 180 Grad
+      digitalWrite(ledPin1, LOW);   // LED 1 aus
+      digitalWrite(ledPin2, LOW);   // LED 2 aus
+      digitalWrite(ledPin3, HIGH);  // LED 3 an
+      break;
+  }
+}

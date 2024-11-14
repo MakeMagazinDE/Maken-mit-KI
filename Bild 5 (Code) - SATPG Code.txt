@@ -1,0 +1,103 @@
+Private Sub DrawPaths()
+    ' Lösche die vorhandene Zeichnung in der PictureBox
+    PictureBox1.Image = Nothing
+
+    ' Verarbeite den GCODE und zeichne in der PictureBox
+    Dim pathPoints As List(Of PointF) = ParseGCode(globGcodeLines)
+    If pathPoints Is Nothing OrElse pathPoints.Count = 0 Then
+        'MessageBox.Show("No paths to draw. Please load a GCODE file first.")
+        Return
+    End If
+
+    ' Verarbeite den GCODE des vorherigen Files 
+    If Not (globGcodeLinesPreFile Is Nothing) Then
+        Try
+            Dim pathPointsPreFile As List(Of PointF) = ParseGCode(globGcodeLinesPreFile)
+            If pathPointsPreFile.Count > 0 Then
+                pathPoints.Insert(0, pathPointsPreFile(pathPointsPreFile.Count - 1))
+            End If
+        Catch
+        End Try
+    End If
+
+    ' Breite der Spur der Kugel im Sand 
+    Dim trackWidth As Single = 1.0F
+
+    ' Farbe für die  Linie festlegen
+    Dim lineColor = Color.Blue
+    Dim lineColorPrefile = Color.Green
+
+    ' Berechne die maximale Ausdehnung der Pfade
+    Dim maxX As Single = pathPoints.Max(Function(p) p.X)
+    Dim maxY As Single = pathPoints.Max(Function(p) p.Y)
+
+    ' Die maximale Ausdehnung der Pfade muss auf die Sandfläche hochskaliert werden
+    Const cTableSizeWith = 390
+    Const cTableSizeHeight = 720
+    maxX = Math.Max(maxX, cTableSizeWith)
+    maxY = Math.Max(maxY, cTableSizeHeight)
+
+
+    ' Ermittle die Größe der PictureBox
+    Dim pictureBoxWidth As Integer = PictureBox1.ClientSize.Width
+    Dim pictureBoxHeight As Integer = PictureBox1.ClientSize.Height
+
+    ' Berechne die Skalierungsfaktoren
+    Dim scaleX As Single = pictureBoxWidth / maxX
+    Dim scaleY As Single = pictureBoxHeight / maxY
+    Dim scale As Single = Math.Min(scaleX, scaleY)
+    scale = Math.Min(1, scale) 'Das gezeichnete Bild darf nie vergrössert werden, nur verkleinert -> Scale darf maximal 1 betragen.
+
+    ' Erstelle ein Bitmap mit ausreichender Größe und transparentem Hintergrund
+    Dim bmp As New Bitmap(pictureBoxWidth, pictureBoxHeight, Imaging.PixelFormat.Format32bppArgb)
+    Using g As Graphics = Graphics.FromImage(bmp)
+        g.Clear(Color.Transparent)
+
+        ' Transformiere das Koordinatensystem:
+        ' Die Y-Achse soll sich im BMP nach oben ausbreiten (BMP-Standard: Nach unten)
+        ' Die Achsen sollen gemäss Skalierungsfaktor vergrössert/verkleinert werden
+        g.TranslateTransform(0, pictureBoxHeight)   'Nullpunkt um die Höhe der PictureBox auf der Y-Achse verschieben
+        g.ScaleTransform(scale, scale * -1)         'Y-Ausrichtung invertieren.
+
+        ' Berechne die Linienpositionen 
+        For j As Integer = 1 To pathPoints.Count - 1
+            Dim startX As Single = (pathPoints(j - 1).X)
+            Dim startY As Single = (pathPoints(j - 1).Y)
+            Dim endY As Single = (pathPoints(j).Y)
+            Dim endX As Single = (pathPoints(j).X)
+
+            'Linien zeichnen
+            If j = 1 And Not (globGcodeLinesPreFile Is Nothing) Then
+                Using pen As New Pen(lineColorPrefile, trackWidth + 2)
+                    g.DrawLine(pen, startX, startY, endX, endY)
+                End Using
+            Else
+                Using pen As New Pen(lineColor, trackWidth)
+                    g.DrawLine(pen, startX, startY, endX, endY)
+                End Using
+            End If
+        Next
+
+        'Grösse der Start-/Endpunkte
+        Dim pointSize1 As Single = 14.0F ' Größe des Startpunktes
+        Dim pointSize2 As Single = 20.0F ' Größe des Endpunktes
+
+        ' Zeichne den letzten Punkt als roten Punkt
+        Dim lastPointX As Single = (pathPoints(pathPoints.Count - 1).X)
+        Dim lastPointY As Single = (pathPoints(pathPoints.Count - 1).Y)
+        Dim lastPointRect As New RectangleF(lastPointX - pointSize2 / 2, lastPointY - pointSize2 / 2, pointSize2, pointSize2)
+        g.FillEllipse(Brushes.Red, lastPointRect)
+
+        ' Zeichne den ersten Punkt als grünen Punkt
+        Dim firstPointX As Single = (pathPoints(0).X)
+        Dim firstPointY As Single = (pathPoints(0).Y)
+        Dim firstPointRect As New RectangleF(firstPointX - pointSize1 / 2, firstPointY - pointSize1 / 2, pointSize1, pointSize1)
+        g.FillEllipse(Brushes.Green, firstPointRect)
+
+
+    End Using
+
+    ' Zeige das Bild in der PictureBox an 
+    PictureBox1.SizeMode = PictureBoxSizeMode.Normal ' Verwenden Sie Normal, um das Zuschneiden zu vermeiden
+    PictureBox1.Image = bmp
+End Sub
